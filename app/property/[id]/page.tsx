@@ -124,29 +124,29 @@ export default function PropertyDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
         {/* Header */}
-      <div className="mb-6">
+      <div className="mb-4 sm:mb-6">
         <a 
           href="/" 
-          className="inline-flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors font-medium mb-4"
+          className="inline-flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors font-medium mb-3 sm:mb-4 text-sm sm:text-base"
         >
-          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 sm:w-5 sm:h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
           Back to Home
         </a>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-2">
               Property Details
             </h1>
-            <p className="text-gray-600 dark:text-gray-400">Property ID: #{property.id}</p>
+            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">Property ID: #{property.id}</p>
           </div>
           {latestSale && (
-            <div className="text-right">
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Latest Sale Price</p>
-              <p className="text-3xl font-bold text-green-600 dark:text-green-400">
+            <div className="text-left sm:text-right">
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-1">Latest Sale Price</p>
+              <p className="text-2xl sm:text-3xl font-bold text-green-600 dark:text-green-400">
                 {formatCurrency(latestSale.price)}
               </p>
             </div>
@@ -156,54 +156,54 @@ export default function PropertyDetailPage() {
 
       {/* Statistics Cards */}
       {priceHistory.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
+          <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg sm:rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Sales</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{priceHistory.length}</p>
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-1">Total Sales</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{priceHistory.length}</p>
               </div>
-              <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="p-2 sm:p-3 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
             </div>
           </div>
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg sm:rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Average Price</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(averagePrice)}</p>
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-1">Average Price</p>
+                <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(averagePrice)}</p>
               </div>
-              <div className="p-3 bg-green-100 dark:bg-green-900 rounded-lg">
-                <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="p-2 sm:p-3 bg-green-100 dark:bg-green-900 rounded-lg">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
             </div>
           </div>
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg sm:rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Minimum Price</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(minPrice)}</p>
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-1">Minimum Price</p>
+                <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(minPrice)}</p>
               </div>
-              <div className="p-3 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
-                <svg className="w-6 h-6 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="p-2 sm:p-3 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                 </svg>
               </div>
             </div>
           </div>
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg sm:rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Maximum Price</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(maxPrice)}</p>
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-1">Maximum Price</p>
+                <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(maxPrice)}</p>
               </div>
-              <div className="p-3 bg-purple-100 dark:bg-purple-900 rounded-lg">
-                <svg className="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="p-2 sm:p-3 bg-purple-100 dark:bg-purple-900 rounded-lg">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
                 </svg>
               </div>
@@ -212,23 +212,23 @@ export default function PropertyDetailPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
         {/* Left Column - Main Content */}
-        <div className="lg:col-span-2 space-y-6 lg:space-y-8">
+        <div className="lg:col-span-2 space-y-4 sm:space-y-6 lg:space-y-8">
       {/* Address Information */}
       {property.address && (
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
-              <div className="flex items-center mb-4">
+            <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg sm:rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center mb-3 sm:mb-4">
                 <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg mr-3">
-                  <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">Address Information</h2>
+                <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">Address Information</h2>
               </div>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-3 sm:space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <label className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1 block">Street Address</label>
                     <p className="text-lg text-gray-900 dark:text-white font-medium">{property.address.address}</p>
@@ -268,14 +268,14 @@ export default function PropertyDetailPage() {
 
           {/* Property Location Map */}
           {property.address && property.address.latitude && property.address.longitude && (
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
-              <div className="flex items-center mb-4">
+            <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg sm:rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center mb-3 sm:mb-4">
                 <div className="p-2 bg-red-100 dark:bg-red-900 rounded-lg mr-3">
-                  <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">Property Location</h2>
+                <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">Property Location</h2>
               </div>
               <PropertyLocationMap
                 latitude={property.address.latitude}
@@ -288,24 +288,24 @@ export default function PropertyDetailPage() {
 
       {/* Price History Table */}
       {priceHistory.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
-              <div className="flex items-center mb-4">
+            <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg sm:rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
+              <div className="flex items-center mb-3 sm:mb-4">
                 <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg mr-3">
-                  <svg className="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">Sale History</h2>
+                <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">Sale History</h2>
               </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Price</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Description</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Size</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Details</th>
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Price</th>
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell">Description</th>
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden md:table-cell">Size</th>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden lg:table-cell">Details</th>
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -317,19 +317,19 @@ export default function PropertyDetailPage() {
                   })
                   .map((ph) => (
                         <tr key={ph.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white font-medium">
+                          <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 dark:text-white font-medium">
                             {ph.date_of_sale}
                           </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600 dark:text-green-400">
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm font-semibold text-green-600 dark:text-green-400">
                             {formatCurrency(ph.price)}
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-900 dark:text-white max-w-md">
+                          <td className="px-3 sm:px-6 py-4 text-xs sm:text-sm text-gray-900 dark:text-white max-w-md hidden sm:table-cell">
                             {ph.description}
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                          <td className="px-3 sm:px-6 py-4 text-xs sm:text-sm text-gray-600 dark:text-gray-400 hidden md:table-cell">
                             {ph.property_size_description || <span className="text-gray-400">N/A</span>}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm hidden lg:table-cell">
                             <div className="flex flex-col gap-1">
                               {ph.not_full_market_price && (
                                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
@@ -353,17 +353,17 @@ export default function PropertyDetailPage() {
         </div>
 
         {/* Right Column - Sidebar */}
-        <div className="space-y-6 lg:space-y-8">
+        <div className="space-y-4 sm:space-y-6 lg:space-y-8">
           {/* Daft.ie Information */}
           {(property.daft_url || property.daft_title || property.daft_body) && (
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
-              <div className="flex items-center mb-4">
+            <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg sm:rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center mb-3 sm:mb-4">
                 <div className="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg mr-3">
-                  <svg className="w-6 h-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">Daft.ie</h2>
+                <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">Daft.ie</h2>
               </div>
               <div className="space-y-4">
       {property.daft_url && (
@@ -425,14 +425,14 @@ export default function PropertyDetailPage() {
           )}
 
           {/* Property Metadata */}
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center mb-4">
+          <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg sm:rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center mb-3 sm:mb-4">
               <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg mr-3">
-                <svg className="w-6 h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">Metadata</h2>
+              <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">Metadata</h2>
             </div>
             <div className="space-y-3">
               <div>

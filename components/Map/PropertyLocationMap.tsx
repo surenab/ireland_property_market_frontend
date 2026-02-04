@@ -14,35 +14,51 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// Create a custom highlighted icon
+// Create a modern highlighted property icon
 const createHighlightedIcon = () => {
+  const size = 48;
+  // Generate unique ID for gradient to avoid conflicts
+  const gradientId = `highlightGradient-${Math.random().toString(36).substr(2, 9)}`;
+  
   return L.divIcon({
-    className: 'custom-highlighted-marker',
+    className: 'modern-highlighted-marker',
     html: `
       <div style="
         position: relative;
-        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-        width: 48px;
-        height: 48px;
-        border-radius: 50% 50% 50% 0;
-        transform: rotate(-45deg);
-        border: 5px solid white;
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.6), 0 0 0 6px rgba(59, 130, 246, 0.15);
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        width: ${size}px;
+        height: ${size + 12}px;
       ">
-        <div style="
-          transform: rotate(45deg);
-          color: white;
-          font-size: 22px;
-          line-height: 1;
-        ">🏠</div>
+        <svg width="${size}" height="${size + 12}" viewBox="0 0 ${size} ${size + 12}" style="filter: drop-shadow(0 4px 12px rgba(59, 130, 246, 0.6)) drop-shadow(0 0 0 6px rgba(59, 130, 246, 0.15));">
+          <!-- Gradient definition -->
+          <defs>
+            <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#2563eb;stop-opacity:1" />
+            </linearGradient>
+          </defs>
+          <!-- Pin body with gradient -->
+          <path d="M${size/2} 0 C${size*0.7} 0 ${size} ${size*0.3} ${size} ${size*0.6} C${size} ${size*0.8} ${size*0.7} ${size} ${size/2} ${size} C${size*0.3} ${size} 0 ${size*0.8} 0 ${size*0.6} C0 ${size*0.3} ${size*0.3} 0 ${size/2} 0 Z" 
+                fill="url(#${gradientId})" 
+                stroke="white" 
+                stroke-width="2"/>
+          <!-- Pin point -->
+          <path d="M${size*0.4} ${size} L${size/2} ${size + 10} L${size*0.6} ${size} Z" 
+                fill="url(#${gradientId})" 
+                stroke="white" 
+                stroke-width="2"/>
+          <!-- Home icon -->
+          <g transform="translate(${size/2}, ${size/2})">
+            <path d="M-8 -5 L0 -10 L8 -5 L8 3 L-8 3 Z" 
+                  fill="white" 
+                  opacity="0.95"/>
+            <rect x="-2.5" y="0" width="5" height="5" fill="white" opacity="0.95"/>
+          </g>
+        </svg>
       </div>
     `,
-    iconSize: [48, 48],
-    iconAnchor: [24, 48],
-    popupAnchor: [0, -48],
+    iconSize: [size, size + 12],
+    iconAnchor: [size / 2, size + 12],
+    popupAnchor: [0, -(size + 12)],
   });
 };
 

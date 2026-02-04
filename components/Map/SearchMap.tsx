@@ -17,6 +17,53 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
+// Create a modern custom property pin icon
+const createModernPropertyIcon = (size: number = 32) => {
+  // Generate unique ID for gradient to avoid conflicts
+  const gradientId = `pinGradient-${Math.random().toString(36).substr(2, 9)}`;
+  
+  return L.divIcon({
+    className: 'modern-property-marker',
+    html: `
+      <div style="
+        position: relative;
+        width: ${size}px;
+        height: ${size}px;
+      ">
+        <svg width="${size}" height="${size + 8}" viewBox="0 0 ${size} ${size + 8}" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+          <!-- Gradient definition -->
+          <defs>
+            <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#2563eb;stop-opacity:1" />
+            </linearGradient>
+          </defs>
+          <!-- Pin body with gradient -->
+          <path d="M${size/2} 0 C${size*0.7} 0 ${size} ${size*0.3} ${size} ${size*0.6} C${size} ${size*0.8} ${size*0.7} ${size} ${size/2} ${size} C${size*0.3} ${size} 0 ${size*0.8} 0 ${size*0.6} C0 ${size*0.3} ${size*0.3} 0 ${size/2} 0 Z" 
+                fill="url(#${gradientId})" 
+                stroke="white" 
+                stroke-width="1.5"/>
+          <!-- Pin point -->
+          <path d="M${size*0.4} ${size} L${size/2} ${size + 6} L${size*0.6} ${size} Z" 
+                fill="url(#${gradientId})" 
+                stroke="white" 
+                stroke-width="1.5"/>
+          <!-- Home icon -->
+          <g transform="translate(${size/2}, ${size/2})">
+            <path d="M-6 -4 L0 -8 L6 -4 L6 2 L-6 2 Z" 
+                  fill="white" 
+                  opacity="0.9"/>
+            <rect x="-2" y="0" width="4" height="4" fill="white" opacity="0.9"/>
+          </g>
+        </svg>
+      </div>
+    `,
+    iconSize: [size, size + 8],
+    iconAnchor: [size / 2, size + 8],
+    popupAnchor: [0, -(size + 8)],
+  });
+};
+
 interface SearchMapProps {
   searchQuery?: string;
   filters?: {
@@ -368,7 +415,8 @@ function MarkerClusterGroupComponent({
 
     // Add markers to cluster group AFTER it's added to the map
     points.forEach((point) => {
-      const marker = L.marker([point.latitude, point.longitude]);
+      const modernIcon = createModernPropertyIcon(32);
+      const marker = L.marker([point.latitude, point.longitude], { icon: modernIcon });
       
       // Create popup content
       let popupContent = `<div class="text-sm min-w-[200px]">

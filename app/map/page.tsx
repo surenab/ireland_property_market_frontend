@@ -55,8 +55,20 @@ function MapPageContent() {
   });
   
   const [counties, setCounties] = useState<string[]>([]);
-  const [showControls, setShowControls] = useState(true);
+  const [showControls, setShowControls] = useState(false); // Start collapsed on mobile
   const [propertiesCount, setPropertiesCount] = useState(0);
+  
+  // Check if mobile on mount
+  useEffect(() => {
+    const checkMobile = () => {
+      if (window.innerWidth >= 640) { // sm breakpoint
+        setShowControls(true);
+      }
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     // Load counties on mount - use fallback if API fails
@@ -145,18 +157,50 @@ function MapPageContent() {
         />
       </div>
 
-      {/* Overlay Controls - Top Left */}
+      {/* Mobile: Backdrop overlay */}
+      {showControls && (
+        <div
+          className="fixed inset-0 bg-black/30 dark:bg-black/50 sm:hidden z-40 transition-opacity"
+          onClick={() => setShowControls(false)}
+          style={{ pointerEvents: 'auto' }}
+        />
+      )}
+
+      {/* Mobile: Floating Toggle Button (when collapsed) */}
+      {!showControls && (
+        <button
+          onClick={() => setShowControls(true)}
+          className="fixed bottom-4 left-1/2 transform -translate-x-1/2 sm:hidden z-50 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-6 py-3 rounded-full shadow-2xl flex items-center space-x-2 font-medium transition-all"
+          aria-label="Show filters"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+          </svg>
+          <span>Filters</span>
+        </button>
+      )}
+
+      {/* Overlay Controls - Mobile bottom sheet, Desktop top-left */}
       <div 
-        className="absolute top-4 left-4 max-w-md w-full max-h-[calc(100vh-2rem)] overflow-y-auto"
-        style={{ zIndex: 1000, pointerEvents: 'auto' }}
+        className={`fixed sm:absolute ${
+          showControls 
+            ? 'bottom-0 sm:top-4 sm:bottom-auto' 
+            : '-bottom-full sm:top-4 sm:bottom-auto'
+        } left-0 right-0 sm:left-4 sm:right-auto sm:max-w-md w-full sm:w-auto transition-all duration-300 ease-in-out z-50 sm:z-[1000]`}
+        style={{ pointerEvents: 'auto', maxHeight: '85vh' }}
       >
         <div 
-          className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 space-y-4"
-          style={{ pointerEvents: 'auto' }}
+          className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 sm:p-4 space-y-3 sm:space-y-4 overflow-y-auto h-full"
+          style={{ pointerEvents: 'auto', maxHeight: 'inherit' }}
         >
+          {/* Mobile: Drag Handle */}
+          <div className="sm:hidden flex justify-center mb-2">
+            <div className="w-12 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+          </div>
+
           {/* Toggle Button */}
           <div className="flex items-center justify-between mb-2">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Map Analysis</h2>
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">Map Analysis</h2>
             <button
               onClick={() => setShowControls(!showControls)}
               className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -164,7 +208,7 @@ function MapPageContent() {
             >
               {showControls ? (
                 <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               ) : (
                 <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

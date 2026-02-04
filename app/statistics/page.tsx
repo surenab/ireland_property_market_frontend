@@ -96,14 +96,14 @@ export default function StatisticsPage() {
   }
 
   return (
-    <div className="container mx-auto p-4 sm:p-8 bg-gray-50 dark:bg-gray-900 min-h-screen">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2 text-gray-900 dark:text-white">Statistics Dashboard</h1>
-        <p className="text-gray-600 dark:text-gray-400">Comprehensive analysis of Irish property data</p>
+    <div className="container mx-auto p-3 sm:p-4 md:p-8 bg-gray-50 dark:bg-gray-900 min-h-screen">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 text-gray-900 dark:text-white">Statistics Dashboard</h1>
+        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">Comprehensive analysis of Irish property data</p>
       </div>
 
       {/* Filters Section */}
-      <div className="mb-6">
+      <div className="mb-4 sm:mb-6">
         <MapFilters 
           filters={filters} 
           onFilterChange={setFilters} 
@@ -112,21 +112,23 @@ export default function StatisticsPage() {
       </div>
 
       {/* Period Selector */}
-      <div className="mb-6 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <label className="mr-4 text-gray-700 dark:text-gray-300 font-medium">Period:</label>
-        <select
-          value={selectedPeriod}
-          onChange={(e) => setSelectedPeriod(e.target.value as 'monthly' | 'quarterly' | 'yearly')}
-          className="border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
-        >
-          <option value="monthly">Monthly</option>
-          <option value="quarterly">Quarterly</option>
-          <option value="yearly">Yearly</option>
-        </select>
+      <div className="mb-4 sm:mb-6 bg-white dark:bg-gray-800 p-3 sm:p-4 rounded-lg sm:rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+          <label className="text-sm sm:text-base text-gray-700 dark:text-gray-300 font-medium">Period:</label>
+          <select
+            value={selectedPeriod}
+            onChange={(e) => setSelectedPeriod(e.target.value as 'monthly' | 'quarterly' | 'yearly')}
+            className="flex-1 sm:flex-none border border-gray-300 dark:border-gray-600 rounded-lg px-3 sm:px-4 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-sm sm:text-base"
+          >
+            <option value="monthly">Monthly</option>
+            <option value="quarterly">Quarterly</option>
+            <option value="yearly">Yearly</option>
+          </select>
+        </div>
       </div>
 
       {/* Unified Price Trends Chart */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg mb-8 border border-gray-200 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 p-3 sm:p-4 md:p-6 rounded-lg sm:rounded-xl shadow-lg mb-4 sm:mb-6 md:mb-8 border border-gray-200 dark:border-gray-700 overflow-x-auto">
         <UnifiedPriceChart 
           data={priceTrends} 
           selectedMetrics={selectedMetrics}
@@ -135,7 +137,7 @@ export default function StatisticsPage() {
       </div>
 
       {/* County Comparison */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg mb-8 border border-gray-200 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 p-3 sm:p-4 md:p-6 rounded-lg sm:rounded-xl shadow-lg mb-4 sm:mb-6 md:mb-8 border border-gray-200 dark:border-gray-700 overflow-x-auto">
         <CountyComparisonChart data={countyStats} />
       </div>
     </div>

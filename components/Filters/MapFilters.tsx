@@ -116,16 +116,16 @@ export default function MapFilters({ filters, onFilterChange, counties, properti
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 space-y-4">
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Filters</h3>
+    <div className="bg-white dark:bg-gray-800 p-3 sm:p-4 rounded-lg sm:rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 space-y-3 sm:space-y-4">
+      <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Filters</h3>
       
       {/* Year Range Dual Slider */}
       <div>
-        <div className="flex justify-between items-center mb-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <div className="flex justify-between items-center mb-3 sm:mb-4">
+          <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">
             Sale Year Range
           </label>
-          <span className="text-sm font-semibold text-gray-900 dark:text-white">
+          <span className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white">
             {minYearValue} - {maxYearValue}
           </span>
         </div>
@@ -162,13 +162,13 @@ export default function MapFilters({ filters, onFilterChange, counties, properti
 
       {/* County Selection */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           County
         </label>
         <select
           value={filters.county || ''}
           onChange={(e) => handleChange('county', e.target.value)}
-          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-xs sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
         >
           <option value="">All Counties</option>
           {counties.map((county) => (
@@ -181,11 +181,11 @@ export default function MapFilters({ filters, onFilterChange, counties, properti
 
       {/* Price Range Dual Slider */}
       <div>
-        <div className="flex justify-between items-center mb-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <div className="flex justify-between items-center mb-3 sm:mb-4">
+          <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">
             Price Range (€)
           </label>
-          <span className="text-sm font-semibold text-gray-900 dark:text-white">
+          <span className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white">
             {currentMinPrice === minPrice ? 'Any' : `€${currentMinPrice.toLocaleString()}`} - {currentMaxPrice === maxPrice ? 'Any' : `€${currentMaxPrice.toLocaleString()}`}
           </span>
         </div>
@@ -215,7 +215,7 @@ export default function MapFilters({ filters, onFilterChange, counties, properti
 
       {/* Additional Filters */}
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Additional Filters
         </label>
         <div className="space-y-2">
@@ -226,7 +226,7 @@ export default function MapFilters({ filters, onFilterChange, counties, properti
               onChange={(e) => handleChange('hasGeocoding', e.target.checked ? true : undefined)}
               className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
-            <span className="text-sm text-gray-700 dark:text-gray-300">Has Geocoding</span>
+            <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">Has Geocoding</span>
           </label>
           <label className="flex items-center">
             <input
@@ -235,22 +235,22 @@ export default function MapFilters({ filters, onFilterChange, counties, properti
               onChange={(e) => handleChange('hasDaftData', e.target.checked ? true : undefined)}
               className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
-            <span className="text-sm text-gray-700 dark:text-gray-300">Has Daft.ie Data</span>
+            <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">Has Daft.ie Data</span>
           </label>
         </div>
       </div>
 
       {/* Property Count Display */}
-      <div className="mt-4 p-4 rounded-xl shadow-md bg-gradient-to-r from-blue-500 to-indigo-600 text-white dark:from-blue-700 dark:to-indigo-800 flex items-center space-x-4">
+      <div className="mt-3 sm:mt-4 p-3 sm:p-4 rounded-lg sm:rounded-xl shadow-md bg-gradient-to-r from-blue-500 to-indigo-600 text-white dark:from-blue-700 dark:to-indigo-800 flex items-center space-x-3 sm:space-x-4">
         <div className="flex-shrink-0">
-          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
         </div>
         <div>
-          <p className="text-sm font-medium opacity-90">Properties Found</p>
-          <p className="text-3xl font-bold">{propertiesCount.toLocaleString()}</p>
+          <p className="text-xs sm:text-sm font-medium opacity-90">Properties Found</p>
+          <p className="text-2xl sm:text-3xl font-bold">{propertiesCount.toLocaleString()}</p>
           <p className="text-xs opacity-80">in current view</p>
         </div>
       </div>

@@ -1,11 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'standalone',
-  // Disable image optimization for now
   images: {
-    unoptimized: true,
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
+    ],
   },
+  // Enable React strict mode for better development experience
+  reactStrictMode: true,
 };
 
 export default nextConfig;

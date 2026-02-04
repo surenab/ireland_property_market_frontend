@@ -62,24 +62,24 @@ export default function AnalysisModeSelector({
   const inactiveClass = 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600';
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 space-y-4">
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Data Analysis</h3>
+    <div className="bg-white dark:bg-gray-800 p-3 sm:p-4 rounded-lg sm:rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 space-y-3 sm:space-y-4">
+      <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Data Analysis</h3>
       
       {/* Mode Selection */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
         {modes.map((m) => (
           <button
             key={m.value}
             onClick={() => onChange(m.value)}
-            className={`p-3 rounded-lg border-2 transition-all duration-200 transform hover:scale-105 ${
+            className={`p-2 sm:p-3 rounded-lg border-2 transition-all duration-200 transform hover:scale-105 ${
               mode === m.value
                 ? colorClasses[m.color as keyof typeof colorClasses]
                 : inactiveClass + ' text-gray-700 dark:text-gray-300'
             }`}
           >
-            <div className="text-2xl mb-1">{m.icon}</div>
-            <div className="font-semibold text-sm">{m.label}</div>
-            <div className="text-xs mt-1 opacity-75">{m.description}</div>
+            <div className="text-xl sm:text-2xl mb-1">{m.icon}</div>
+            <div className="font-semibold text-xs sm:text-sm">{m.label}</div>
+            <div className="text-xs mt-1 opacity-75 hidden sm:block">{m.description}</div>
           </button>
         ))}
       </div>
@@ -87,13 +87,13 @@ export default function AnalysisModeSelector({
       {/* Spatial Patterns Dropdown */}
       {mode === 'spatial-patterns' && onSpatialPatternChange && (
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Pattern Type
           </label>
           <select
             value={spatialPatternType || 'Density'}
             onChange={(e) => onSpatialPatternChange(e.target.value)}
-            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-xs sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
           >
             {spatialPatternTypes.map((type) => (
               <option key={type} value={type}>
