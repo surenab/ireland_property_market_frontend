@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { AnalysisMode } from '@/components/MapAnalysis/AnalysisModeSelector';
+import MapLoadingOverlay from './MapLoadingOverlay';
 
 // @ts-ignore - leaflet.heat doesn't have types
 import 'leaflet.heat';
@@ -49,7 +50,8 @@ function MapVisualization({
   spatialPatternType,
   hotspotControls,
   filters,
-  onPropertiesCountChange
+  onPropertiesCountChange,
+  onLoadingChange
 }: { 
   bounds: L.LatLngBounds | null; 
   analysisMode: AnalysisMode;
@@ -57,10 +59,18 @@ function MapVisualization({
   hotspotControls?: { radius?: number; intensity?: number };
   filters?: PropertyMapProps['filters'];
   onPropertiesCountChange?: (count: number) => void;
+  onLoadingChange?: (loading: boolean) => void;
 }) {
   const map = useMap();
   const [heatmapLayer, setHeatmapLayer] = useState<L.HeatLayer | null>(null);
   const [loading, setLoading] = useState(false);
+  
+  // Notify parent of loading state changes
+  useEffect(() => {
+    if (onLoadingChange) {
+      onLoadingChange(loading);
+    }
+  }, [loading, onLoadingChange]);
   const [hoverData, setHoverData] = useState<{ lat: number; lng: number; data: any } | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
   const heatmapDataRef = useRef<HeatmapData[]>([]);
@@ -437,6 +447,7 @@ export default function PropertyMap({
   onPropertiesCountChange
 }: PropertyMapProps) {
   const [bounds, setBounds] = useState<L.LatLngBounds | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const mapRef = useRef<L.Map>(null);
 
   // Default center: Ireland
@@ -444,7 +455,7 @@ export default function PropertyMap({
   const defaultZoom = 7;
 
   return (
-    <div className="w-full h-full" style={{ zIndex: 0 }}>
+    <div className="w-full h-full relative" style={{ zIndex: 0 }}>
       <MapContainer
         center={defaultCenter}
         zoom={defaultZoom}
@@ -473,8 +484,10 @@ export default function PropertyMap({
           hotspotControls={hotspotControls}
           filters={filters}
           onPropertiesCountChange={onPropertiesCountChange}
+          onLoadingChange={setIsLoading}
         />
       </MapContainer>
+      <MapLoadingOverlay isLoading={isLoading} />
     </div>
   );
 }

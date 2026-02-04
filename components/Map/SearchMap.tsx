@@ -7,6 +7,7 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import 'leaflet.markercluster';
 import { api, MapPoint } from '@/lib/api';
+import MapLoadingOverlay from './MapLoadingOverlay';
 
 // Fix for default marker icons in Next.js
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -85,12 +86,14 @@ function MapPointsUpdater({
   searchQuery,
   onPointsUpdate,
   onPointsCountChange,
+  onLoadingChange,
 }: { 
   bounds: L.LatLngBounds | null;
   filters?: SearchMapProps['filters'];
   searchQuery?: string;
   onPointsUpdate: (points: MapPoint[]) => void;
   onPointsCountChange?: (count: number) => void;
+  onLoadingChange?: (loading: boolean) => void;
 }) {
   const map = useMap();
   const lastRequestKeyRef = useRef<string>('');
@@ -179,6 +182,11 @@ function MapPointsUpdater({
     lastRequestKeyRef.current = requestKey;
 
     const loadMapData = async () => {
+      // Set loading state
+      if (onLoadingChange) {
+        onLoadingChange(true);
+      }
+      
       try {
         const north = currentBounds.getNorth();
         const south = currentBounds.getSouth();
@@ -211,6 +219,11 @@ function MapPointsUpdater({
         onPointsUpdate([]);
         if (onPointsCountChange) {
           onPointsCountChange(0);
+        }
+      } finally {
+        // Clear loading state
+        if (onLoadingChange) {
+          onLoadingChange(false);
         }
       }
     };
@@ -513,6 +526,7 @@ export default function SearchMap({
   const [bounds, setBounds] = useState<L.LatLngBounds | null>(null);
   const [points, setPoints] = useState<MapPoint[]>([]);
   const [isMounted, setIsMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const mapRef = useRef<L.Map>(null);
 
   // Default center: Ireland
@@ -540,7 +554,7 @@ export default function SearchMap({
   }
 
   return (
-    <div className="w-full h-full" style={{ zIndex: 0 }}>
+    <div className="w-full h-full relative" style={{ zIndex: 0 }}>
       <MapContainer
         center={defaultCenter}
         zoom={defaultZoom}
@@ -570,6 +584,7 @@ export default function SearchMap({
           searchQuery={searchQuery}
           onPointsUpdate={setPoints}
           onPointsCountChange={onPointsCountChange}
+          onLoadingChange={setIsLoading}
         />
         
         {/* Use MarkerClusterGroup for automatic clustering */}
@@ -578,6 +593,7 @@ export default function SearchMap({
           onPropertyClick={onPropertyClick}
         />
       </MapContainer>
+      <MapLoadingOverlay isLoading={isLoading} />
     </div>
   );
 }

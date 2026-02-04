@@ -238,56 +238,6 @@ function SearchPageContent() {
 
           {showControls && (
             <>
-              {/* Search Form */}
-              <form onSubmit={handleSearch} className="mb-4">
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    onBlur={() => {
-                      setTimeout(() => setAutocompleteSuggestions([]), 200);
-                    }}
-                    placeholder="Search by address, eircode, or county..."
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 sm:px-4 py-2 pr-20 sm:pr-24 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 shadow-sm"
-                  />
-                  <button
-                    type="submit"
-                    className="absolute right-1 top-1 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-3 sm:px-4 py-1 rounded-md text-xs sm:text-sm font-medium transition-colors"
-                  >
-                    Search
-                  </button>
-
-                  {/* Autocomplete Suggestions */}
-                  {autocompleteSuggestions.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                      {autocompleteSuggestions.map((suggestion, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                          }}
-                          onClick={() => {
-                            setQuery(suggestion);
-                            setAutocompleteSuggestions([]);
-                            // Auto-search when clicking a suggestion
-                            const queryLower = suggestion.toLowerCase();
-                            const matchingCounty = counties.find(c => c.toLowerCase().includes(queryLower) || queryLower.includes(c.toLowerCase()));
-                            if (matchingCounty) {
-                              setFilters(prev => ({ ...prev, county: matchingCounty }));
-                            }
-                          }}
-                          className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0 text-sm"
-                        >
-                          {suggestion}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </form>
-
               {/* Filters Section */}
               <MapFilters 
                 filters={filters} 
