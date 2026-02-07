@@ -3,9 +3,11 @@
  */
 import axios from 'axios';
 
-// Use relative URLs if NEXT_PUBLIC_API_URL is empty (same origin), otherwise use the provided URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 
-  (typeof window !== 'undefined' ? 'https://clownfish-app-bthm6.ondigitalocean.app' : 'https://clownfish-app-bthm6.ondigitalocean.app');
+// When NEXT_PUBLIC_API_URL is unset: same origin (''), Next.js rewrites /api/* to backend in dev (avoids CORS/network errors).
+// Set NEXT_PUBLIC_API_URL to your backend URL (e.g. http://localhost:8080) to call it directly.
+const API_BASE_URL =
+  (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) ||
+  (typeof window === 'undefined' ? 'https://clownfish-app-bthm6.ondigitalocean.app' : '');
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -487,6 +489,66 @@ export const api = {
     return response.data;
   },
 };
+
+/** PPR CSV upload response (protected endpoint). */
+export interface PprUploadResponse {
+  total_rows: number;
+  unique_properties: number;
+  created: number;
+  updated: number;
+  skipped: number;
+  geocoded: number;
+  failed_geocode: number;
+  daft_scraped: number;
+  failed_daft: number;
+  errors: string[];
+}
+
+/** Response when starting async PPR import (upload or download-and-import). */
+export interface PprImportJobStartResponse {
+  job_id: string;
+}
+
+/** Status of an async PPR import job. */
+export interface PprImportStatusResponse {
+  status: 'running' | 'completed' | 'failed';
+  result?: PprUploadResponse | null;
+  error?: string | null;
+}
+
+const PPR_IMPORT_POLL_MS = 2000;
+
+/** Poll until job completes or fails; returns result or throws with error message. */
+async function pollPprImportUntilDone(
+  jobId: string,
+  onStatus?: (status: PprImportStatusResponse) => void
+): Promise<PprUploadResponse> {
+  for (;;) {
+    const { data } = await apiClient.get<PprImportStatusResponse>(
+      `/api/admin/ppr-import-status/${jobId}`,
+      { timeout: 15000 }
+    );
+    if (onStatus) onStatus(data);
+    if (data.status === 'completed' && data.result) return data.result;
+    if (data.status === 'failed') {
+      throw new Error(data.error ?? 'Import failed');
+    }
+    await new Promise((r) => setTimeout(r, PPR_IMPORT_POLL_MS));
+  }
+}
+
+/** Download PPR-ALL.zip and import. Starts async job and polls until done; notifies via onStatus. */
+export async function downloadPprAndImport(
+  onStatus?: (status: PprImportStatusResponse) => void
+): Promise<PprUploadResponse> {
+  const response = await apiClient.post<PprImportJobStartResponse>(
+    '/api/admin/ppr-download-and-import',
+    {},
+    { timeout: 15000 }
+  );
+  const jobId = response.data.job_id;
+  return pollPprImportUntilDone(jobId, onStatus);
+}
 
 export default api;
 
