@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Slider from 'rc-slider';
 import 'rc-slider/assets/index.css';
-import { api } from '@/lib/api';
 
 interface MapFiltersProps {
   filters: {
@@ -14,29 +13,45 @@ interface MapFiltersProps {
     maxPrice?: number;
     hasGeocoding?: boolean;
     hasDaftData?: boolean;
+    min2Sales?: boolean;
   };
   onFilterChange: (filters: MapFiltersProps['filters']) => void;
   counties: string[];
   propertiesCount?: number;
+  /** Compact layout for mobile (dropdowns/inputs like map view filters) */
+  compact?: boolean;
 }
 
-export default function MapFilters({ filters, onFilterChange, counties, propertiesCount = 0 }: MapFiltersProps) {
-  const [dateRange, setDateRange] = useState<{ min_year: number; max_year: number } | null>(null);
-  const [loadingDateRange, setLoadingDateRange] = useState(true);
+function formatPriceForInput(value: number | undefined): string {
+  if (value === undefined || value === null) return '';
+  return String(value);
+}
+
+function parsePriceInput(value: string): number | undefined {
+  const trimmed = value.replace(/\s/g, '').replace(/,/g, '');
+  if (trimmed === '') return undefined;
+  const n = parseInt(trimmed, 10);
+  return isNaN(n) || n < 0 ? undefined : n;
+}
+
+export default function MapFilters({ filters, onFilterChange, counties, propertiesCount = 0, compact = false }: MapFiltersProps) {
+  // Hardcoded year range: 2010 to 2026
+  const minYear = 2010;
+  const maxYear = 2026;
   
-  // Calculate year range: min from DB, max is current year
-  const currentYear = new Date().getFullYear();
-  const lastYear = currentYear - 1; // Last year for default
+  // Debounce timers
+  const yearDebounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const priceDebounceTimer = useRef<NodeJS.Timeout | null>(null);
   
-  // Use DB min year if available, otherwise fallback to last year
-  const minYear = dateRange?.min_year ?? lastYear;
-  const maxYear = dateRange?.max_year ?? currentYear;
+  // Local state for immediate visual feedback
+  const [localYearValues, setLocalYearValues] = useState<[number, number] | null>(null);
+  const [localPriceValues, setLocalPriceValues] = useState<[number, number] | null>(null);
   
   // Get year from date string (YYYY-MM-DD format)
   const getYearFromDate = (dateStr?: string): number => {
-    if (!dateStr) return lastYear; // Default to last year for left slider
+    if (!dateStr) return minYear; // Default to min year for left slider
     const year = parseInt(dateStr.split('-')[0]);
-    return isNaN(year) ? lastYear : year;
+    return isNaN(year) ? minYear : year;
   };
   
   // Convert year to start date string (YYYY-01-01 format)
@@ -49,40 +64,39 @@ export default function MapFilters({ filters, onFilterChange, counties, properti
     return `${year}-12-31`;
   };
   
-  // Fetch date range from API on mount
+  // Set default dates if not set
   useEffect(() => {
-    const fetchDateRange = async () => {
-      try {
-        const range = await api.getDateRange();
-        setDateRange(range);
-      } catch (error) {
-        console.error('Error fetching date range:', error);
-        // Fallback to last year - current year
-        const currentYear = new Date().getFullYear();
-        const lastYear = currentYear - 1;
-        setDateRange({ min_year: lastYear, max_year: currentYear });
-      } finally {
-        setLoadingDateRange(false);
-      }
-    };
-    fetchDateRange();
-  }, []);
-  
-  // Set default end date to current year's last day if not set
-  useEffect(() => {
-    if (!filters.endDate && !loadingDateRange) {
+    const updates: { startDate?: string; endDate?: string } = {};
+    if (!filters.startDate) {
+      updates.startDate = '2010-01-01';
+    }
+    if (!filters.endDate) {
+      updates.endDate = '2026-12-31';
+    }
+    if (Object.keys(updates).length > 0) {
       onFilterChange({
         ...filters,
-        endDate: yearToEndDate(currentYear),
+        ...updates,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadingDateRange]); // Run when date range loading completes
+  }, []); // Run once on mount
   
-  // Get current year values from filters
-  // Default left slider to last year, right slider to current year
-  const minYearValue = getYearFromDate(filters.startDate);
-  const maxYearValue = getYearFromDate(filters.endDate) || currentYear;
+  // Get current year values from filters or local state
+  const minYearValue = localYearValues ? localYearValues[0] : getYearFromDate(filters.startDate);
+  const maxYearValue = localYearValues ? localYearValues[1] : (getYearFromDate(filters.endDate) || maxYear);
+  
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      if (yearDebounceTimer.current) {
+        clearTimeout(yearDebounceTimer.current);
+      }
+      if (priceDebounceTimer.current) {
+        clearTimeout(priceDebounceTimer.current);
+      }
+    };
+  }, []);
   
   const handleChange = (key: string, value: string | number | boolean | undefined) => {
     onFilterChange({
@@ -93,27 +107,180 @@ export default function MapFilters({ filters, onFilterChange, counties, properti
   
   const handleYearChange = (values: number[]) => {
     const [minYearVal, maxYearVal] = values.sort((a, b) => a - b);
-    onFilterChange({
-      ...filters,
-      startDate: yearToStartDate(minYearVal),
-      endDate: yearToEndDate(maxYearVal),
-    });
+    
+    // Update local state immediately for visual feedback
+    setLocalYearValues([minYearVal, maxYearVal]);
+    
+    // Clear existing timer
+    if (yearDebounceTimer.current) {
+      clearTimeout(yearDebounceTimer.current);
+    }
+    
+    // Debounce the actual filter update
+    yearDebounceTimer.current = setTimeout(() => {
+      onFilterChange({
+        ...filters,
+        startDate: yearToStartDate(minYearVal),
+        endDate: yearToEndDate(maxYearVal),
+      });
+      setLocalYearValues(null); // Clear local state after update
+    }, 500); // 500ms delay
   };
   
   // Price range configuration
   const minPrice = 0;
   const maxPrice = 5000000; // 5 million as max
-  const currentMinPrice = filters.minPrice || minPrice;
-  const currentMaxPrice = filters.maxPrice || maxPrice;
+  const currentMinPrice = localPriceValues ? localPriceValues[0] : (filters.minPrice || minPrice);
+  const currentMaxPrice = localPriceValues ? localPriceValues[1] : (filters.maxPrice || maxPrice);
   
   const handlePriceChange = (values: number[]) => {
     const [minPriceVal, maxPriceVal] = values.sort((a, b) => a - b);
-    onFilterChange({
-      ...filters,
-      minPrice: minPriceVal === minPrice ? undefined : minPriceVal,
-      maxPrice: maxPriceVal === maxPrice ? undefined : maxPriceVal,
-    });
+    
+    // Update local state immediately for visual feedback
+    setLocalPriceValues([minPriceVal, maxPriceVal]);
+    
+    // Clear existing timer
+    if (priceDebounceTimer.current) {
+      clearTimeout(priceDebounceTimer.current);
+    }
+    
+    // Debounce the actual filter update
+    priceDebounceTimer.current = setTimeout(() => {
+      onFilterChange({
+        ...filters,
+        minPrice: minPriceVal === minPrice ? undefined : minPriceVal,
+        maxPrice: maxPriceVal === maxPrice ? undefined : maxPriceVal,
+      });
+      setLocalPriceValues(null); // Clear local state after update
+    }, 500); // 500ms delay
   };
+
+  const inputBase = 'rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
+  const inputCompact = 'py-2 px-2.5';
+
+  const yearOptions = Array.from({ length: maxYear - minYear + 1 }, (_, i) => minYear + i);
+
+  if (compact) {
+    return (
+      <div className="flex flex-col gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <select
+          value={filters.county || ''}
+          onChange={(e) => handleChange('county', e.target.value || undefined)}
+          className={`w-full ${inputBase} ${inputCompact}`}
+          aria-label="County"
+        >
+          <option value="">All Counties</option>
+          {counties.map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+        <div className="flex items-center gap-1.5">
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder="Min €"
+            value={formatPriceForInput(filters.minPrice)}
+            onChange={(e) => {
+              const v = parsePriceInput(e.target.value);
+              onFilterChange({
+                ...filters,
+                minPrice: v === undefined ? undefined : v,
+                maxPrice: v !== undefined && filters.maxPrice !== undefined && v > filters.maxPrice ? v : filters.maxPrice,
+              });
+            }}
+            className={`min-w-0 flex-1 ${inputBase} ${inputCompact} placeholder-gray-400`}
+            aria-label="Min price (€)"
+          />
+          <span className="shrink-0 text-gray-500 dark:text-gray-400 text-sm">–</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder="Max €"
+            value={formatPriceForInput(filters.maxPrice)}
+            onChange={(e) => {
+              const v = parsePriceInput(e.target.value);
+              onFilterChange({
+                ...filters,
+                maxPrice: v === undefined ? undefined : v,
+                minPrice: v !== undefined && filters.minPrice !== undefined && v < filters.minPrice ? v : filters.minPrice,
+              });
+            }}
+            className={`min-w-0 flex-1 ${inputBase} ${inputCompact} placeholder-gray-400`}
+            aria-label="Max price (€)"
+          />
+        </div>
+        <div className="flex items-center gap-1">
+          <select
+            value={minYearValue}
+            onChange={(e) => {
+              const y = parseInt(e.target.value, 10);
+              onFilterChange({
+                ...filters,
+                startDate: yearToStartDate(y),
+                endDate: getYearFromDate(filters.endDate) < y ? yearToEndDate(y) : filters.endDate,
+              });
+            }}
+            className={`min-w-0 flex-1 ${inputBase} ${inputCompact}`}
+            aria-label="From year"
+          >
+            {yearOptions.map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+          <span className="shrink-0 text-gray-500 dark:text-gray-400 text-sm">–</span>
+          <select
+            value={maxYearValue}
+            onChange={(e) => {
+              const y = parseInt(e.target.value, 10);
+              onFilterChange({
+                ...filters,
+                endDate: yearToEndDate(y),
+                startDate: getYearFromDate(filters.startDate) > y ? yearToStartDate(y) : filters.startDate,
+              });
+            }}
+            className={`min-w-0 flex-1 ${inputBase} ${inputCompact}`}
+            aria-label="To year"
+          >
+            {yearOptions.map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-wrap gap-3 items-center">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={filters.hasGeocoding === true}
+              onChange={(e) => handleChange('hasGeocoding', e.target.checked ? true : undefined)}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-sm text-gray-700 dark:text-gray-300">Geocoding</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={filters.hasDaftData === true}
+              onChange={(e) => handleChange('hasDaftData', e.target.checked ? true : undefined)}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-sm text-gray-700 dark:text-gray-300">Daft.ie</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={filters.min2Sales === true}
+              onChange={(e) => handleChange('min2Sales', e.target.checked ? true : undefined)}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-sm text-gray-700 dark:text-gray-300">Min 2 sales</span>
+          </label>
+        </div>
+        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+          {propertiesCount.toLocaleString()} properties
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white dark:bg-gray-800 p-3 sm:p-4 rounded-lg sm:rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 space-y-3 sm:space-y-4">
@@ -129,35 +296,27 @@ export default function MapFilters({ filters, onFilterChange, counties, properti
             {minYearValue} - {maxYearValue}
           </span>
         </div>
-        {loadingDateRange ? (
-          <div className="h-6 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-          </div>
-        ) : (
-          <>
-            <Slider
-              range
-              min={minYear}
-              max={maxYear}
-              value={[minYearValue, maxYearValue]}
-              onChange={(values) => {
-                if (Array.isArray(values)) {
-                  handleYearChange(values);
-                }
-              }}
-              trackStyle={[{ backgroundColor: '#3b82f6', height: 6 }]}
-              handleStyle={[
-                { borderColor: '#3b82f6', height: 20, width: 20, marginTop: -7 },
-                { borderColor: '#3b82f6', height: 20, width: 20, marginTop: -7 },
-              ]}
-              railStyle={{ backgroundColor: '#e5e7eb', height: 6 }}
-            />
-            <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-2">
-              <span>{minYear}</span>
-              <span>{maxYear}</span>
-            </div>
-          </>
-        )}
+        <Slider
+          range
+          min={minYear}
+          max={maxYear}
+          value={[minYearValue, maxYearValue]}
+          onChange={(values) => {
+            if (Array.isArray(values)) {
+              handleYearChange(values);
+            }
+          }}
+          trackStyle={[{ backgroundColor: '#3b82f6', height: 6 }]}
+          handleStyle={[
+            { borderColor: '#3b82f6', height: 20, width: 20, marginTop: -7 },
+            { borderColor: '#3b82f6', height: 20, width: 20, marginTop: -7 },
+          ]}
+          railStyle={{ backgroundColor: '#e5e7eb', height: 6 }}
+        />
+        <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-2">
+          <span>{minYear}</span>
+          <span>{maxYear}</span>
+        </div>
       </div>
 
       {/* County Selection */}
@@ -236,6 +395,15 @@ export default function MapFilters({ filters, onFilterChange, counties, properti
               className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
             <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">Has Daft.ie Data</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={filters.min2Sales === true}
+              onChange={(e) => handleChange('min2Sales', e.target.checked ? true : undefined)}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">Min 2 sales</span>
           </label>
         </div>
       </div>

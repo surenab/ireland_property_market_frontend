@@ -1,0 +1,13 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "Dublin" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-6.45, 53.2], [-6.0, 53.2], [-6.0, 53.55], [-6.45, 53.55], [-6.45, 53.2]]]
+      }
+    }
+  ]
+}

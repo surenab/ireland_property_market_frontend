@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
-import ThemeToggle from './ThemeToggle';
 
 export default function Navigation() {
   const pathname = usePathname();
@@ -12,6 +11,7 @@ export default function Navigation() {
   const navItems = [
     { href: '/', label: 'Home', icon: '🏠' },
     { href: '/map', label: 'Map', icon: '🗺️' },
+    { href: '/heatmap', label: 'HeatMap', icon: '🔥' },
     { href: '/statistics', label: 'Statistics', icon: '📊' },
     { href: '/search', label: 'Search', icon: '🔍' },
     { href: '/about', label: 'About', icon: '👤' },
@@ -50,8 +50,6 @@ export default function Navigation() {
                 );
               })}
             </div>
-            
-            <ThemeToggle />
 
             {/* Mobile Menu Button */}
             <button

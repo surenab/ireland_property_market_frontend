@@ -5,9 +5,16 @@ export default function Home() {
     {
       href: '/map',
       icon: '🗺️',
-      title: 'Interactive Map',
-      description: 'Explore properties on an interactive map with multiple clustering modes',
+      title: 'Map',
+      description: 'Search properties by address on a map with county hover; list view with pagination',
       gradient: 'from-blue-500 to-cyan-500',
+    },
+    {
+      href: '/heatmap',
+      icon: '🔥',
+      title: 'HeatMap',
+      description: 'Explore properties with heatmap and clustering modes',
+      gradient: 'from-orange-500 to-red-500',
     },
     {
       href: '/statistics',
@@ -20,7 +27,7 @@ export default function Home() {
       href: '/search',
       icon: '🔍',
       title: 'Search',
-      description: 'Search properties by address or eircode with autocomplete',
+      description: 'Browse all properties with filters and pagination',
       gradient: 'from-green-500 to-emerald-500',
     },
   ];

@@ -1,11 +1,14 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useTransition, useCallback } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { AnalysisMode } from '@/components/MapAnalysis/AnalysisModeSelector';
 import MapLoadingOverlay from './MapLoadingOverlay';
+import { api } from '@/lib/api';
+import MapRequestManager from '@/lib/mapRequestManager';
+import { useViewportPrefetch } from '@/lib/useViewportPrefetch';
 
 // @ts-ignore - leaflet.heat doesn't have types
 import 'leaflet.heat';
@@ -45,7 +48,6 @@ interface HeatmapData {
 }
 
 function MapVisualization({ 
-  bounds, 
   analysisMode, 
   spatialPatternType,
   hotspotControls,
@@ -53,7 +55,6 @@ function MapVisualization({
   onPropertiesCountChange,
   onLoadingChange
 }: { 
-  bounds: L.LatLngBounds | null; 
   analysisMode: AnalysisMode;
   spatialPatternType?: string;
   hotspotControls?: { radius?: number; intensity?: number };
@@ -64,65 +65,39 @@ function MapVisualization({
   const map = useMap();
   const [heatmapLayer, setHeatmapLayer] = useState<L.HeatLayer | null>(null);
   const [loading, setLoading] = useState(false);
-  
+  const [, startTransition] = useTransition();
+  const requestManager = useRef(new MapRequestManager());
+  const debounceTimer = useRef<NodeJS.Timeout | undefined>(undefined);
+  const lastRequestKey = useRef<string>('');
+  const lastZoom = useRef<number | null>(null);
+  const [hoverData, setHoverData] = useState<{ lat: number; lng: number; data: any } | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
+  const heatmapDataRef = useRef<HeatmapData[]>([]);
+  const polygonLayerRef = useRef<L.LayerGroup | null>(null);
+
   // Notify parent of loading state changes
   useEffect(() => {
     if (onLoadingChange) {
       onLoadingChange(loading);
     }
   }, [loading, onLoadingChange]);
-  const [hoverData, setHoverData] = useState<{ lat: number; lng: number; data: any } | null>(null);
-  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
-  const heatmapDataRef = useRef<HeatmapData[]>([]);
-  const lastRequestKeyRef = useRef<string>('');
-  const [mapReady, setMapReady] = useState(false);
 
-  // Ensure map is ready before trying to get bounds
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    const checkMapReady = () => {
-      try {
-        if (map && map.getBounds && map.getBounds().isValid()) {
-          setMapReady(true);
-        } else {
-          timer = setTimeout(checkMapReady, 100);
-        }
-      } catch (error) {
-        timer = setTimeout(checkMapReady, 100);
-      }
-    };
-    checkMapReady();
-    return () => clearTimeout(timer);
-  }, [map]);
-
-  useEffect(() => {
-    // Wait for map to be ready
-    if (!mapReady) {
-      return;
-    }
-
-    // Get bounds - prefer provided bounds, otherwise get from map
-    let currentBounds: L.LatLngBounds;
-    try {
-      if (bounds && bounds.isValid()) {
-        currentBounds = bounds;
-      } else {
-        const mapBounds = map.getBounds();
-        if (!mapBounds.isValid()) {
-          return;
-        }
-        currentBounds = mapBounds;
-      }
-    } catch (error) {
-      // Map not ready yet
-      return;
-    }
-
-    // Create a stable key from bounds and filters to detect actual changes
-    const boundsKey = `${currentBounds.getNorth().toFixed(4)}_${currentBounds.getSouth().toFixed(4)}_${currentBounds.getEast().toFixed(4)}_${currentBounds.getWest().toFixed(4)}`;
+  const loadData = useCallback(async (immediate: boolean = false) => {
+    if (!map) return;
     
-    // Create a stable key from filters and analysis settings
+    const bounds = map.getBounds();
+    const zoom = map.getZoom();
+    const north = bounds.getNorth();
+    const south = bounds.getSouth();
+    const east = bounds.getEast();
+    const west = bounds.getWest();
+    
     const filtersKey = JSON.stringify({
+      north,
+      south,
+      east,
+      west,
+      zoom,
       county: filters?.county,
       startDate: filters?.startDate,
       endDate: filters?.endDate,
@@ -135,170 +110,221 @@ function MapVisualization({
       radius: hotspotControls?.radius,
       intensity: hotspotControls?.intensity,
     });
-
-    const requestKey = `${boundsKey}_${filtersKey}`;
     
-    // Skip if this exact request was already made
-    if (lastRequestKeyRef.current === requestKey) {
-      return;
+    // Clear existing debounce timer
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
     }
-
-    lastRequestKeyRef.current = requestKey;
-
-    const loadMapData = async () => {
+    
+    // Cancel previous request if viewport changed
+    if (lastRequestKey.current !== filtersKey) {
+      requestManager.current.cancelRequest(lastRequestKey.current);
+    }
+    
+    const makeRequest = async () => {
       setLoading(true);
       // Keep the old heatmap layer visible while loading new data
-      const oldHeatmapLayer = heatmapLayer;
+      const currentOldLayer = heatmapLayer;
+      if (currentOldLayer && currentOldLayer.setOpacity) {
+        // Reduce opacity for transition
+        currentOldLayer.setOpacity(0.3);
+      }
+      
+      lastRequestKey.current = filtersKey;
       
       try {
-        const north = currentBounds.getNorth();
-        const south = currentBounds.getSouth();
-        const east = currentBounds.getEast();
-        const west = currentBounds.getWest();
-
-        // Build query params
-        const params: Record<string, string | number> = {
-          north,
-          south,
-          east,
-          west,
-          analysis_mode: analysisMode,
-        };
-
-        if (filters?.county) params.county = filters.county;
-        if (filters?.startDate) params.start_date = filters.startDate;
-        if (filters?.endDate) params.end_date = filters.endDate;
-        if (filters?.minPrice) params.min_price = filters.minPrice;
-        if (filters?.maxPrice) params.max_price = filters.maxPrice;
-        if (filters?.hasGeocoding !== undefined) params.has_geocoding = String(filters.hasGeocoding);
-        if (filters?.hasDaftData !== undefined) params.has_daft_data = String(filters.hasDaftData);
-        if (spatialPatternType) params.pattern_type = spatialPatternType;
-        if (hotspotControls?.radius) params.radius = hotspotControls.radius;
-        if (hotspotControls?.intensity) params.intensity = hotspotControls.intensity;
-
-        // Call appropriate API endpoint based on analysis mode
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://clownfish-app-bthm6.ondigitalocean.app';
-        const response = await fetch(
-          `${apiUrl}/api/map/analysis?${new URLSearchParams(params as Record<string, string>)}`
+        const requestKey = `map_analysis_${filtersKey}`;
+        
+        const data = await requestManager.current.request(
+          requestKey,
+          () => api.getMapAnalysis({
+            north,
+            south,
+            east,
+            west,
+            zoom,
+            analysis_mode: analysisMode,
+            county: filters?.county,
+            start_date: filters?.startDate,
+            end_date: filters?.endDate,
+            min_price: filters?.minPrice,
+            max_price: filters?.maxPrice,
+            has_geocoding: filters?.hasGeocoding,
+            has_daft_data: filters?.hasDaftData,
+            pattern_type: spatialPatternType,
+            radius: hotspotControls?.radius,
+            intensity: hotspotControls?.intensity,
+          }),
+          1 // High priority
         );
         
-        if (!response.ok) {
-          throw new Error(`API error: ${response.status} ${response.statusText}`);
-        }
-        
-        const data = await response.json();
+        if (!data) return;
+        if (!map?.getContainer?.() || !document.contains(map.getContainer())) return;
 
         // Report property count to parent
         if (onPropertiesCountChange && data.total_properties !== undefined) {
           onPropertiesCountChange(data.total_properties);
         }
 
-        // Process data based on analysis mode
-        if (data.heatmap_data && data.heatmap_data.length > 0) {
-          // Store heatmap data for hover tooltips
-          heatmapDataRef.current = data.heatmap_data;
-          
-          // Create heatmap layer with more visible colors
-          const heatmapPoints: [number, number, number][] = data.heatmap_data.map((point: HeatmapData) => [
-            point.lat,
-            point.lng,
-            point.intensity || 1
-          ]);
+        // Prefer heatmap_polygons when present; otherwise use heatmap_data (points)
+        const hasPolygons = data.heatmap_polygons && data.heatmap_polygons.length > 0;
+        const hasPoints = data.heatmap_data && data.heatmap_data.length > 0;
 
-          // Use different gradient for growth-decline mode
-          const isGrowthDecline = analysisMode === 'growth-decline';
-          const gradient = isGrowthDecline ? {
-            // Growth-decline: red (decline) -> yellow (neutral) -> green (growth)
-            0.0: '#FF0000',  // Red (decline)
-            0.25: '#FF6600', // Orange-red
-            0.5: '#FFFF00',  // Yellow (neutral)
-            0.75: '#66FF00', // Yellow-green
-            1.0: '#00FF00'   // Green (growth)
-          } : {
-            // Default gradient for other modes
-            0.0: '#0000FF',  // Bright blue
-            0.2: '#00FFFF',  // Cyan
-            0.4: '#00FF00',  // Bright green
-            0.6: '#FFFF00',  // Bright yellow
-            0.8: '#FF8000',  // Orange
-            1.0: '#FF0000'   // Bright red
-          };
-
-          const newHeatmapLayer = (L as any).heatLayer(heatmapPoints, {
-            radius: hotspotControls?.radius || 50,
-            blur: 15,
-            maxZoom: 18,
-            gradient: gradient,
-            minOpacity: 0.15   // Make it more visible
-          });
-
-          // Add new layer first
-          newHeatmapLayer.addTo(map);
-          setHeatmapLayer(newHeatmapLayer);
-          
-          // Remove old heatmap layer only after new one is successfully added
-          if (oldHeatmapLayer) {
-            map.removeLayer(oldHeatmapLayer);
+        if (hasPolygons) {
+          heatmapDataRef.current = [];
+          if (currentOldLayer) {
+            try {
+              map.removeLayer(currentOldLayer);
+            } catch {
+              // Ignore
+            }
+            setHeatmapLayer(null);
+          }
+          if (polygonLayerRef.current) {
+            try {
+              map.removeLayer(polygonLayerRef.current);
+            } catch {
+              // Ignore
+            }
+            polygonLayerRef.current = null;
           }
 
-          // Add mouse move event to show tooltip
-          const handleMouseMove = (e: L.LeafletMouseEvent) => {
-            const mouseLat = e.latlng.lat;
-            const mouseLng = e.latlng.lng;
-            
-            // Find the closest heatmap point within a reasonable distance
-            let closestPoint: HeatmapData | null = null;
-            let minDistance = Infinity;
-            const searchRadius = 0.01; // degrees, roughly 1km
-            
-            for (const point of heatmapDataRef.current) {
-              const distance = Math.sqrt(
-                Math.pow(point.lat - mouseLat, 2) + Math.pow(point.lng - mouseLng, 2)
-              );
-              
-              if (distance < searchRadius && distance < minDistance) {
-                minDistance = distance;
-                closestPoint = point;
+          startTransition(() => {
+            setTimeout(() => {
+              if (!map?.getContainer?.() || !document.contains(map.getContainer())) return;
+              const isGrowthDecline = analysisMode === 'growth-decline';
+              const polygonGroup = L.layerGroup();
+              data.heatmap_polygons.forEach((feature: { coordinates: Array<Array<number[]>>; metadata: Record<string, unknown> }) => {
+                const ring = feature.coordinates[0];
+                if (!ring || ring.length < 3) return;
+                const latLngs: [number, number][] = ring.map(([lng, lat]) => [lat, lng]);
+                const intensity = Number(feature.metadata?.intensity ?? 0);
+                const fillColor = isGrowthDecline
+                  ? intensity < 0.5 ? '#FF0000' : intensity < 0.75 ? '#FFFF00' : '#00FF00'
+                  : intensity < 0.25 ? '#0000FF' : intensity < 0.5 ? '#00FFFF' : intensity < 0.75 ? '#FFFF00' : '#FF0000';
+                const poly = L.polygon(latLngs, {
+                  fillColor,
+                  fillOpacity: 0.35,
+                  color: '#333',
+                  weight: 0.5,
+                });
+                const meta = feature.metadata || {};
+                const tip = [
+                  meta.sales_count != null && `Sales: ${meta.sales_count}`,
+                  meta.avg_price != null && `Avg: €${Number(meta.avg_price).toLocaleString()}`,
+                ].filter(Boolean).join(' | ');
+                if (tip) poly.bindTooltip(tip, { permanent: false, direction: 'top' });
+                polygonGroup.addLayer(poly);
+              });
+              try {
+                polygonGroup.addTo(map);
+                polygonLayerRef.current = polygonGroup;
+              } catch {
+                // Map may have been destroyed (e.g. unmounted)
               }
+            }, 0);
+          });
+        } else if (hasPoints) {
+          heatmapDataRef.current = data.heatmap_data;
+          if (polygonLayerRef.current) {
+            try {
+              map.removeLayer(polygonLayerRef.current);
+            } catch {
+              // Ignore
             }
-            
-            if (closestPoint) {
-              setHoverData({
-                lat: closestPoint.lat,
-                lng: closestPoint.lng,
-                data: closestPoint.data || {}
-              });
-              
-              // Convert lat/lng to pixel coordinates for tooltip positioning
-              const containerPoint = map.latLngToContainerPoint(e.latlng);
-              setTooltipPosition({
-                x: containerPoint.x,
-                y: containerPoint.y
-              });
-            } else {
-              setHoverData(null);
-              setTooltipPosition(null);
-            }
-          };
+            polygonLayerRef.current = null;
+          }
 
+          startTransition(() => {
+            setTimeout(() => {
+              if (!map?.getContainer?.() || !document.contains(map.getContainer())) return;
+              const heatmapPoints: [number, number, number][] = data.heatmap_data.map((point: HeatmapData) => [
+                point.lat,
+                point.lng,
+                point.intensity || 1
+              ]);
+              const isGrowthDecline = analysisMode === 'growth-decline';
+              const gradient = isGrowthDecline ? {
+                0.0: '#FF0000', 0.25: '#FF6600', 0.5: '#FFFF00', 0.75: '#66FF00', 1.0: '#00FF00'
+              } : {
+                0.0: '#0000FF', 0.2: '#00FFFF', 0.4: '#00FF00', 0.6: '#FFFF00', 0.8: '#FF8000', 1.0: '#FF0000'
+              };
+              const newHeatmapLayer = (L as any).heatLayer(heatmapPoints, {
+                radius: hotspotControls?.radius || 40,
+                blur: 25,
+                maxZoom: 18,
+                gradient,
+                minOpacity: 0.05
+              });
+              try {
+                newHeatmapLayer.addTo(map);
+                setHeatmapLayer(newHeatmapLayer);
+                if (currentOldLayer) {
+                  setTimeout(() => {
+                    try {
+                      map.removeLayer(currentOldLayer);
+                    } catch {
+                      // Ignore
+                    }
+                  }, 150);
+                }
+              } catch {
+                // Map may have been destroyed (e.g. unmounted)
+              }
+            }, 0);
+          });
+
+          let mouseMoveTimeout: NodeJS.Timeout | null = null;
+          const handleMouseMove = (e: L.LeafletMouseEvent) => {
+            if (mouseMoveTimeout) clearTimeout(mouseMoveTimeout);
+            mouseMoveTimeout = setTimeout(() => {
+              const mouseLat = e.latlng.lat;
+              const mouseLng = e.latlng.lng;
+              let closestPoint: HeatmapData | null = null;
+              let minDistance = Infinity;
+              const searchRadius = 0.01;
+              const pointsToSearch = heatmapDataRef.current.slice(0, 1000);
+              for (const point of pointsToSearch) {
+                const distance = Math.sqrt(
+                  Math.pow(point.lat - mouseLat, 2) + Math.pow(point.lng - mouseLng, 2)
+                );
+                if (distance < searchRadius && distance < minDistance) {
+                  minDistance = distance;
+                  closestPoint = point;
+                }
+              }
+              if (closestPoint) {
+                setHoverData({ lat: closestPoint.lat, lng: closestPoint.lng, data: closestPoint.data || {} });
+                const containerPoint = map.latLngToContainerPoint(e.latlng);
+                setTooltipPosition({ x: containerPoint.x, y: containerPoint.y });
+              } else {
+                setHoverData(null);
+                setTooltipPosition(null);
+              }
+            }, 50);
+          };
           const handleMouseOut = () => {
             setHoverData(null);
             setTooltipPosition(null);
           };
-
           map.on('mousemove', handleMouseMove);
           map.on('mouseout', handleMouseOut);
-
-          // Cleanup function
           return () => {
             map.off('mousemove', handleMouseMove);
             map.off('mouseout', handleMouseOut);
           };
         } else {
-          // No new heatmap data - remove old layer if it exists
-          if (oldHeatmapLayer) {
-            map.removeLayer(oldHeatmapLayer);
+          if (currentOldLayer) {
+            map.removeLayer(currentOldLayer);
             setHeatmapLayer(null);
+          }
+          if (polygonLayerRef.current) {
+            try {
+              map.removeLayer(polygonLayerRef.current);
+            } catch {
+              // Ignore
+            }
+            polygonLayerRef.current = null;
           }
           heatmapDataRef.current = [];
         }
@@ -306,63 +332,115 @@ function MapVisualization({
         // Map is for statistical analysis only - no individual property markers
         // Only show heatmaps and cluster visualizations
 
-      } catch (error) {
-        console.error('Error loading map data:', error);
+      } catch (error: any) {
+        if (error.name !== 'AbortError' && error.code !== 'ERR_CANCELED') {
+          console.error('Error loading map data:', error);
+        }
       } finally {
         setLoading(false);
       }
     };
+    
+    if (immediate) {
+      makeRequest();
+    } else {
+      // Debounce: wait 400ms after last pan event, 200ms after zoom
+      const delay = 400;
+      debounceTimer.current = setTimeout(makeRequest, delay);
+    }
+  }, [map, analysisMode, spatialPatternType, hotspotControls, filters, onPropertiesCountChange, heatmapLayer]);
 
-    // Debounce API calls - only call after user stops moving/zooming
-    const timeoutId = setTimeout(loadMapData, 500);
+  // Handle map events
+  useEffect(() => {
+    if (!map) return;
+    
+    const handleMoveEnd = () => loadData(false); // Debounced
+    
+    const handleZoomEnd = () => {
+      const currentZoom = map.getZoom();
+      const previousZoom = lastZoom.current;
+      
+      // If zooming in from level 12+, don't reload (data is already loaded)
+      if (previousZoom !== null && previousZoom >= 12 && currentZoom > previousZoom) {
+        // Just update the last zoom, don't reload
+        lastZoom.current = currentZoom;
+        return;
+      }
+      
+      // For zoom out or zooming in from < 12, reload data
+      lastZoom.current = currentZoom;
+      loadData(true);
+    };
+    
+    map.on('moveend', handleMoveEnd);
+    map.on('zoomend', handleZoomEnd);
+    
+    // Initial load
+    lastZoom.current = map.getZoom();
+    loadData(true);
     
     return () => {
-      clearTimeout(timeoutId);
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-      }, [mapReady, bounds, analysisMode, spatialPatternType, hotspotControls?.radius, hotspotControls?.intensity, filters?.county, filters?.startDate, filters?.endDate, filters?.minPrice, filters?.maxPrice, filters?.hasGeocoding, filters?.hasDaftData]);
+      map.off('moveend', handleMoveEnd);
+      map.off('zoomend', handleZoomEnd);
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+      requestManager.current.cancelAll();
+    };
+  }, [loadData, map]);
 
   // Add mouse move event handler for tooltip
   useEffect(() => {
     if (!map || heatmapDataRef.current.length === 0) return;
 
+    let mouseMoveTimeout: NodeJS.Timeout | null = null;
     const handleMouseMove = (e: L.LeafletMouseEvent) => {
-      const mouseLat = e.latlng.lat;
-      const mouseLng = e.latlng.lng;
+      // Debounce mouse move to prevent blocking
+      if (mouseMoveTimeout) {
+        clearTimeout(mouseMoveTimeout);
+      }
       
-      // Find the closest heatmap point within a reasonable distance
-      let closestPoint: HeatmapData | null = null;
-      let minDistance = Infinity;
-      const searchRadius = 0.01; // degrees, roughly 1km
-      
-      for (const point of heatmapDataRef.current) {
-        const distance = Math.sqrt(
-          Math.pow(point.lat - mouseLat, 2) + Math.pow(point.lng - mouseLng, 2)
-        );
+      mouseMoveTimeout = setTimeout(() => {
+        const mouseLat = e.latlng.lat;
+        const mouseLng = e.latlng.lng;
         
-        if (distance < searchRadius && distance < minDistance) {
-          minDistance = distance;
-          closestPoint = point;
+        // Find the closest heatmap point within a reasonable distance
+        // Limit search to prevent blocking with large datasets
+        let closestPoint: HeatmapData | null = null;
+        let minDistance = Infinity;
+        const searchRadius = 0.01; // degrees, roughly 1km
+        const maxSearchPoints = 1000; // Limit search to prevent blocking
+        
+        const pointsToSearch = heatmapDataRef.current.slice(0, maxSearchPoints);
+        for (const point of pointsToSearch) {
+          const distance = Math.sqrt(
+            Math.pow(point.lat - mouseLat, 2) + Math.pow(point.lng - mouseLng, 2)
+          );
+          
+          if (distance < searchRadius && distance < minDistance) {
+            minDistance = distance;
+            closestPoint = point;
+          }
         }
-      }
-      
-      if (closestPoint) {
-        setHoverData({
-          lat: closestPoint.lat,
-          lng: closestPoint.lng,
-          data: closestPoint.data || {}
-        });
         
-        // Convert lat/lng to pixel coordinates for tooltip positioning
-        const containerPoint = map.latLngToContainerPoint(e.latlng);
-        setTooltipPosition({
-          x: containerPoint.x,
-          y: containerPoint.y
-        });
-      } else {
-        setHoverData(null);
-        setTooltipPosition(null);
-      }
+        if (closestPoint) {
+          setHoverData({
+            lat: closestPoint.lat,
+            lng: closestPoint.lng,
+            data: closestPoint.data || {}
+          });
+          
+          // Convert lat/lng to pixel coordinates for tooltip positioning
+          const containerPoint = map.latLngToContainerPoint(e.latlng);
+          setTooltipPosition({
+            x: containerPoint.x,
+            y: containerPoint.y
+          });
+        } else {
+          setHoverData(null);
+          setTooltipPosition(null);
+        }
+      }, 50); // 50ms debounce
     };
 
     const handleMouseOut = () => {
@@ -446,9 +524,11 @@ export default function PropertyMap({
   filters,
   onPropertiesCountChange
 }: PropertyMapProps) {
-  const [bounds, setBounds] = useState<L.LatLngBounds | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const mapRef = useRef<L.Map>(null);
+  
+  // Background prefetching for adjacent viewports
+  useViewportPrefetch(mapRef, filters, true);
 
   // Default center: Ireland
   const defaultCenter: [number, number] = [53.41291, -8.24389];
@@ -466,19 +546,14 @@ export default function PropertyMap({
         fadeAnimation={true}
         markerZoomAnimation={true}
         whenReady={() => {
-          if (mapRef.current) {
-            const initialBounds = mapRef.current.getBounds();
-            setBounds(initialBounds);
-          }
+          // Map ready, data will be loaded by MapVisualization
         }}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <MapBoundsUpdater onBoundsChange={setBounds} />
         <MapVisualization 
-          bounds={bounds} 
           analysisMode={analysisMode}
           spatialPatternType={spatialPatternType}
           hotspotControls={hotspotControls}
@@ -492,56 +567,3 @@ export default function PropertyMap({
   );
 }
 
-function MapBoundsUpdater({ onBoundsChange }: { onBoundsChange: (bounds: L.LatLngBounds) => void }) {
-  const map = useMap();
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastBoundsRef = useRef<string | null>(null);
-  const initialBoundsSetRef = useRef(false);
-
-  useEffect(() => {
-    // Set initial bounds immediately when map is ready
-    if (!initialBoundsSetRef.current && map) {
-      const initialBounds = map.getBounds();
-      if (initialBounds.isValid()) {
-        const boundsKey = `${initialBounds.getNorth().toFixed(4)}_${initialBounds.getSouth().toFixed(4)}_${initialBounds.getEast().toFixed(4)}_${initialBounds.getWest().toFixed(4)}`;
-        lastBoundsRef.current = boundsKey;
-        onBoundsChange(initialBounds);
-        initialBoundsSetRef.current = true;
-      }
-    }
-
-    const updateBounds = () => {
-      // Debounce bounds updates to avoid excessive API calls
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-      
-      timeoutRef.current = setTimeout(() => {
-        const currentBounds = map.getBounds();
-        if (currentBounds.isValid()) {
-          // Create a stable key to detect actual changes
-          const boundsKey = `${currentBounds.getNorth().toFixed(4)}_${currentBounds.getSouth().toFixed(4)}_${currentBounds.getEast().toFixed(4)}_${currentBounds.getWest().toFixed(4)}`;
-          
-          // Only update if bounds actually changed
-          if (lastBoundsRef.current !== boundsKey) {
-            lastBoundsRef.current = boundsKey;
-            onBoundsChange(currentBounds);
-          }
-        }
-      }, 500);
-    };
-
-    map.on('moveend', updateBounds);
-    map.on('zoomend', updateBounds);
-
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-      map.off('moveend', updateBounds);
-      map.off('zoomend', updateBounds);
-    };
-  }, [map, onBoundsChange]);
-
-  return null;
-}

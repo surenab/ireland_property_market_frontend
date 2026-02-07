@@ -1,19 +1,29 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { api, PriceTrendPoint, CountyStatistics } from '@/lib/api';
+import { useEffect, useState, useTransition } from 'react';
+import {
+  api,
+  PriceTrendPoint,
+  CountyStatistics,
+  DatabaseStatsResponse,
+  PriceDistributionBucket,
+} from '@/lib/api';
 import UnifiedPriceChart from '@/components/Statistics/UnifiedPriceChart';
 import CountyComparisonChart from '@/components/Statistics/CountyComparisonChart';
+import SalesVolumeChart from '@/components/Statistics/SalesVolumeChart';
+import PriceDistributionChart from '@/components/Statistics/PriceDistributionChart';
 import MapFilters from '@/components/Filters/MapFilters';
 
 export default function StatisticsPage() {
   const [priceTrends, setPriceTrends] = useState<PriceTrendPoint[]>([]);
   const [countyStats, setCountyStats] = useState<CountyStatistics[]>([]);
+  const [dbStats, setDbStats] = useState<DatabaseStatsResponse | null>(null);
+  const [priceDistribution, setPriceDistribution] = useState<PriceDistributionBucket[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedPeriod, setSelectedPeriod] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
+  const [, startTransition] = useTransition();
+  const [selectedPeriod, setSelectedPeriod] = useState<'monthly' | 'quarterly' | 'yearly'>('yearly');
   const [counties, setCounties] = useState<string[]>([]);
-  
-  // Filter state
+
   const [filters, setFilters] = useState<{
     startDate?: string;
     endDate?: string;
@@ -22,14 +32,28 @@ export default function StatisticsPage() {
     maxPrice?: number;
     hasGeocoding?: boolean;
     hasDaftData?: boolean;
-  }>({});
-  
-  // Metric selection state
+    min2Sales?: boolean;
+  }>({
+    startDate: '2010-01-01',
+    endDate: '2026-12-31',
+  });
+
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [selectedMetrics, setSelectedMetrics] = useState({
     average: true,
     median: true,
     stdDev: false,
   });
+
+  const statParams = {
+    county: filters.county,
+    min_price: filters.minPrice,
+    max_price: filters.maxPrice,
+    start_date: filters.startDate,
+    end_date: filters.endDate,
+    has_geocoding: filters.hasGeocoding,
+    has_daft_data: filters.hasDaftData,
+  };
 
   useEffect(() => {
     loadCounties();
@@ -42,103 +66,189 @@ export default function StatisticsPage() {
   const loadCounties = async () => {
     try {
       const countiesList = await api.listCounties();
-      setCounties(countiesList);
-    } catch (error) {
-      console.error('Error loading counties:', error);
-      setCounties([]);
+      setTimeout(() => setCounties(countiesList || []), 0);
+    } catch {
+      setTimeout(() => setCounties([]), 0);
     }
   };
 
   const loadStatistics = async () => {
     setLoading(true);
     try {
-      const [trends, counties] = await Promise.all([
-        api.getPriceTrends({ 
+      const [trendsRes, countyRes, dbRes, distRes] = await Promise.all([
+        api.getPriceTrends({
           period: selectedPeriod,
-          county: filters.county,
-          min_price: filters.minPrice,
-          max_price: filters.maxPrice,
-          start_date: filters.startDate,
-          end_date: filters.endDate,
-          has_geocoding: filters.hasGeocoding,
-          has_daft_data: filters.hasDaftData,
+          ...statParams,
         }),
-        api.getCountyComparison(),
+        api.getCountyComparison(statParams),
+        api.getDatabaseStats(),
+        api.getPriceDistribution(statParams),
       ]);
 
-      setPriceTrends(trends.trends);
-      setCountyStats(counties.counties);
+      startTransition(() => {
+        setTimeout(() => {
+          setPriceTrends(trendsRes.trends);
+          setCountyStats(countyRes.counties);
+          setDbStats(dbRes);
+          setPriceDistribution(distRes.buckets);
+          setLoading(false);
+        }, 0);
+      });
     } catch (error) {
       console.error('Error loading statistics:', error);
-    } finally {
       setLoading(false);
     }
   };
 
   const handleMetricToggle = (metric: 'average' | 'median' | 'stdDev') => {
-    setSelectedMetrics(prev => ({
-      ...prev,
-      [metric]: !prev[metric],
-    }));
+    setSelectedMetrics((prev) => ({ ...prev, [metric]: !prev[metric] }));
   };
+
+  const totalPropertiesCount = priceTrends.reduce((sum, trend) => sum + (trend.count || 0), 0);
+  const salesVolumeData = priceTrends.map((t) => ({ date: t.date, count: t.count }));
 
   if (loading) {
     return (
-      <div className="container mx-auto p-8">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
-            <p className="text-gray-600 dark:text-gray-400">Loading statistics...</p>
-          </div>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-8">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4" />
+          <p className="text-gray-600 dark:text-gray-400">Loading statistics...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-3 sm:p-4 md:p-8 bg-gray-50 dark:bg-gray-900 min-h-screen">
-      <div className="mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 text-gray-900 dark:text-white">Statistics Dashboard</h1>
-        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">Comprehensive analysis of Irish property data</p>
-      </div>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+      <div className="flex flex-col md:flex-row flex-1 min-h-0 w-full">
+        {/* Left: filters – 25% on desktop; hidden on mobile (Filters button + collapsible panel) */}
+        <aside className="hidden md:block md:w-1/4 md:max-w-[320px] shrink-0 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+          <div className="p-4 md:sticky md:top-0 md:max-h-screen md:overflow-y-auto">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Filters</h2>
+            <MapFilters
+              filters={filters}
+              onFilterChange={setFilters}
+              counties={counties}
+              propertiesCount={totalPropertiesCount}
+            />
+            <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Period</label>
+              <select
+                value={selectedPeriod}
+                onChange={(e) => setSelectedPeriod(e.target.value as 'monthly' | 'quarterly' | 'yearly')}
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              >
+                <option value="monthly">Monthly</option>
+                <option value="quarterly">Quarterly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+            </div>
+          </div>
+        </aside>
 
-      {/* Filters Section */}
-      <div className="mb-4 sm:mb-6">
-        <MapFilters 
-          filters={filters} 
-          onFilterChange={setFilters} 
-          counties={counties}
-        />
-      </div>
+        {/* Right: statistical data – 75% (full width on mobile with Filters bar) */}
+        <main className="flex-1 min-w-0 overflow-auto">
+          {/* Mobile: sticky bar with title + Filters button + collapsible panel (same as search/heatmap) */}
+          <div className="md:hidden shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-2 px-3 py-2">
+              <span className="text-sm font-semibold text-gray-900 dark:text-white truncate min-w-0">
+                Statistics
+              </span>
+              <button
+                type="button"
+                onClick={() => setMobileFiltersOpen((o) => !o)}
+                className="shrink-0 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                aria-expanded={mobileFiltersOpen}
+                aria-label={mobileFiltersOpen ? 'Hide filters' : 'Show filters'}
+              >
+                {mobileFiltersOpen ? 'Done' : 'Filters'}
+              </button>
+            </div>
+            {mobileFiltersOpen && (
+              <div className="px-3 pb-3 pt-0 border-t border-gray-100 dark:border-gray-800">
+                <MapFilters
+                  compact
+                  filters={filters}
+                  onFilterChange={setFilters}
+                  counties={counties}
+                  propertiesCount={totalPropertiesCount}
+                />
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Period</label>
+                  <select
+                    value={selectedPeriod}
+                    onChange={(e) => setSelectedPeriod(e.target.value as 'monthly' | 'quarterly' | 'yearly')}
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2.5 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="yearly">Yearly</option>
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="p-4 md:p-6 lg:p-8">
+            <div className="mb-6 hidden md:block">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Statistics Dashboard</h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Analysis of Irish property data</p>
+            </div>
 
-      {/* Period Selector */}
-      <div className="mb-4 sm:mb-6 bg-white dark:bg-gray-800 p-3 sm:p-4 rounded-lg sm:rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-          <label className="text-sm sm:text-base text-gray-700 dark:text-gray-300 font-medium">Period:</label>
-          <select
-            value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value as 'monthly' | 'quarterly' | 'yearly')}
-            className="flex-1 sm:flex-none border border-gray-300 dark:border-gray-600 rounded-lg px-3 sm:px-4 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-sm sm:text-base"
-          >
-            <option value="monthly">Monthly</option>
-            <option value="quarterly">Quarterly</option>
-            <option value="yearly">Yearly</option>
-          </select>
-        </div>
-      </div>
+            {/* Database stats cards */}
+            {dbStats && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Properties</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                    {dbStats.total_properties.toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Addresses</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                    {dbStats.total_addresses.toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Price history records</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                    {dbStats.total_price_history.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            )}
 
-      {/* Unified Price Trends Chart */}
-      <div className="bg-white dark:bg-gray-800 p-3 sm:p-4 md:p-6 rounded-lg sm:rounded-xl shadow-lg mb-4 sm:mb-6 md:mb-8 border border-gray-200 dark:border-gray-700 overflow-x-auto">
-        <UnifiedPriceChart 
-          data={priceTrends} 
-          selectedMetrics={selectedMetrics}
-          onMetricToggle={handleMetricToggle}
-        />
-      </div>
+            {/* Price trends line chart */}
+            <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mb-6 overflow-x-auto">
+              <UnifiedPriceChart
+                data={priceTrends}
+                selectedMetrics={selectedMetrics}
+                onMetricToggle={handleMetricToggle}
+              />
+            </div>
 
-      {/* County Comparison */}
-      <div className="bg-white dark:bg-gray-800 p-3 sm:p-4 md:p-6 rounded-lg sm:rounded-xl shadow-lg mb-4 sm:mb-6 md:mb-8 border border-gray-200 dark:border-gray-700 overflow-x-auto">
-        <CountyComparisonChart data={countyStats} />
+            {/* Sales volume bar chart */}
+            {salesVolumeData.length > 0 && (
+              <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mb-6 overflow-x-auto">
+                <SalesVolumeChart data={salesVolumeData} />
+              </div>
+            )}
+
+            {/* Price distribution histogram */}
+            {priceDistribution.length > 0 && (
+              <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mb-6 overflow-x-auto">
+                <PriceDistributionChart data={priceDistribution} />
+              </div>
+            )}
+
+            {/* County comparison bar chart */}
+            {countyStats.length > 0 && (
+              <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto">
+                <CountyComparisonChart data={countyStats} />
+              </div>
+            )}
+          </div>
+        </main>
       </div>
     </div>
   );

@@ -17,14 +17,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark" suppressHydrationWarning>
       <body 
         className={`${inter.className} min-h-screen bg-gray-50 dark:bg-gray-900`}
         suppressHydrationWarning
       >
         <ReactQueryProvider>
           <Navigation />
-          <main className="flex-grow">
+          <main className="grow">
             {children}
           </main>
         </ReactQueryProvider>

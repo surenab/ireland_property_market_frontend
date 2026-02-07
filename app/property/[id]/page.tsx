@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useParams } from 'next/navigation';
 import { api, Property, PriceHistory } from '@/lib/api';
 import dynamic from 'next/dynamic';
@@ -24,6 +24,7 @@ export default function PropertyDetailPage() {
   const [property, setProperty] = useState<Property | null>(null);
   const [priceHistory, setPriceHistory] = useState<PriceHistory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     if (propertyId) {
@@ -38,11 +39,16 @@ export default function PropertyDetailPage() {
         api.getProperty(propertyId),
         api.getPropertyHistory(propertyId),
       ]);
-      setProperty(prop);
-      setPriceHistory(history);
+      // Use transition to update state without blocking UI
+      startTransition(() => {
+        setTimeout(() => {
+          setProperty(prop);
+          setPriceHistory(history);
+          setLoading(false);
+        }, 0);
+      });
     } catch (error) {
       console.error('Error loading property:', error);
-    } finally {
       setLoading(false);
     }
   };

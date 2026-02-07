@@ -14,6 +14,86 @@ const apiClient = axios.create({
   },
 });
 
+// Log request → response time in browser console
+apiClient.interceptors.request.use((config) => {
+  (config as any)._apiStartTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  return config;
+});
+
+apiClient.interceptors.response.use(
+  (response) => {
+    const start = (response.config as any)._apiStartTime as number | undefined;
+    if (typeof start === 'number') {
+      const end = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      const ms = end - start;
+      const method = (response.config.method || 'GET').toUpperCase();
+      const pathOnly = response.config.url || '/';
+      if (typeof console !== 'undefined' && console.info) {
+        console.info(`[API] ${method} ${pathOnly} → ${ms.toFixed(2)} ms (request → response)`);
+      }
+    }
+    return response;
+  },
+  (error) => {
+    const config = error.config;
+    const start = config?._apiStartTime as number | undefined;
+    if (typeof start === 'number' && typeof console !== 'undefined' && console.info) {
+      const end = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      const ms = end - start;
+      const method = (config?.method || 'GET').toUpperCase();
+      const path = (config?.url || config?.baseURL || '').replace(API_BASE_URL, '') || '/';
+      console.info(`[API] ${method} ${path} → ${ms.toFixed(2)} ms (request → response, error)`);
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Simple in-memory cache for API responses
+interface CacheEntry {
+  data: any;
+  timestamp: number;
+}
+
+const cache = new Map<string, CacheEntry>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+function getCacheKey(url: string, params?: any): string {
+  const paramsStr = params ? JSON.stringify(params) : '';
+  return `${url}?${paramsStr}`;
+}
+
+function getCachedResponse(key: string): any | null {
+  const entry = cache.get(key);
+  if (!entry) return null;
+  
+  const now = Date.now();
+  if (now - entry.timestamp > CACHE_TTL) {
+    cache.delete(key);
+    return null;
+  }
+  
+  return entry.data;
+}
+
+function setCachedResponse(key: string, data: any): void {
+  cache.set(key, {
+    data,
+    timestamp: Date.now(),
+  });
+}
+
+// Clear cache entries older than TTL periodically
+if (typeof window !== 'undefined') {
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of cache.entries()) {
+      if (now - entry.timestamp > CACHE_TTL) {
+        cache.delete(key);
+      }
+    }
+  }, 60000); // Check every minute
+}
+
 // Types
 export interface Property {
   id: number;
@@ -156,17 +236,28 @@ export interface CountyComparisonResponse {
   overall_median: number;
 }
 
+export interface DatabaseStatsResponse {
+  total_addresses: number;
+  total_properties: number;
+  total_price_history: number;
+}
+
+export interface PriceDistributionBucket {
+  bucket_label: string;
+  min_price: number;
+  max_price: number;
+  count: number;
+}
+
+export interface PriceDistributionResponse {
+  buckets: PriceDistributionBucket[];
+}
+
 export interface CorrelationResponse {
   correlation_coefficient: number;
   p_value: number;
   sample_size: number;
   interpretation: string;
-}
-
-export interface SearchResponse {
-  properties: PropertyListItem[];
-  total: number;
-  query: string;
 }
 
 // API functions
@@ -180,49 +271,120 @@ export const api = {
     max_price?: number;
     has_geocoding?: boolean;
     has_daft_data?: boolean;
+    min_sales?: number;
+    sort?: string;
+    start_date?: string;
+    end_date?: string;
   }): Promise<PropertyListResponse> {
-    const response = await apiClient.get('/api/properties', { params });
+    const cacheKey = getCacheKey('/api/properties', params);
+    const cached = getCachedResponse(cacheKey);
+    if (cached) return cached;
+    
+    const response = await apiClient.get('/api/properties/', { params });
+    setCachedResponse(cacheKey, response.data);
     return response.data;
   },
 
   async getProperty(id: number): Promise<Property> {
+    const cacheKey = getCacheKey(`/api/properties/${id}`);
+    const cached = getCachedResponse(cacheKey);
+    if (cached) return cached;
+    
     const response = await apiClient.get(`/api/properties/${id}`);
+    setCachedResponse(cacheKey, response.data);
     return response.data;
   },
 
   async getPropertyHistory(id: number): Promise<PriceHistory[]> {
+    const cacheKey = getCacheKey(`/api/properties/${id}/history`);
+    const cached = getCachedResponse(cacheKey);
+    if (cached) return cached;
+    
     const response = await apiClient.get(`/api/properties/${id}/history`);
+    setCachedResponse(cacheKey, response.data);
     return response.data;
   },
 
-  // Map
-  async getMapClusters(params: {
-    north: number;
-    south: number;
-    east: number;
-    west: number;
-    zoom?: number;
-    cluster_mode?: string;
-  }): Promise<MapClustersResponse> {
-    const response = await apiClient.get('/api/map/clusters', { params });
-    return response.data;
-  },
 
   async getMapPoints(params: {
-    north: number;
-    south: number;
-    east: number;
-    west: number;
+    north?: number;
+    south?: number;
+    east?: number;
+    west?: number;
     max_points?: number;
+    zoom?: number;
     county?: string;
     min_price?: number;
     max_price?: number;
     has_geocoding?: boolean;
     has_daft_data?: boolean;
+    min_sales?: number;
     start_date?: string;
     end_date?: string;
-  }): Promise<MapPointsResponse> {
-    const response = await apiClient.get('/api/map/points', { params });
+  }, signal?: AbortSignal): Promise<MapPointsResponse> {
+    const cacheKey = getCacheKey('/api/maps/points', params);
+    const cached = getCachedResponse(cacheKey);
+    if (cached) return cached;
+    
+    const response = await apiClient.get('/api/maps/points', { 
+      params,
+      signal 
+    });
+    setCachedResponse(cacheKey, response.data);
+    return response.data;
+  },
+
+  async getPropertiesInViewport(params: {
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+    page?: number;
+    page_size?: number;
+    county?: string;
+    min_price?: number;
+    max_price?: number;
+    has_geocoding?: boolean;
+    has_daft_data?: boolean;
+    min_sales?: number;
+    start_date?: string;
+    end_date?: string;
+  }, signal?: AbortSignal): Promise<PropertyListResponse> {
+    const cacheKey = getCacheKey('/api/maps/list', params);
+    const cached = getCachedResponse(cacheKey);
+    if (cached) return cached;
+    const response = await apiClient.get('/api/maps/list', { params, signal });
+    setCachedResponse(cacheKey, response.data);
+    return response.data;
+  },
+
+  async getMapAnalysis(params: {
+    north?: number;
+    south?: number;
+    east?: number;
+    west?: number;
+    analysis_mode: string;
+    zoom?: number;
+    county?: string;
+    start_date?: string;
+    end_date?: string;
+    min_price?: number;
+    max_price?: number;
+    pattern_type?: string;
+    radius?: number;
+    intensity?: number;
+    has_geocoding?: boolean;
+    has_daft_data?: boolean;
+  }, signal?: AbortSignal): Promise<any> {
+    const cacheKey = getCacheKey('/api/maps/analysis', params);
+    const cached = getCachedResponse(cacheKey);
+    if (cached) return cached;
+    
+    const response = await apiClient.get('/api/maps/analysis', { 
+      params,
+      signal 
+    });
+    setCachedResponse(cacheKey, response.data);
     return response.data;
   },
 
@@ -237,88 +399,91 @@ export const api = {
     has_geocoding?: boolean;
     has_daft_data?: boolean;
   }): Promise<PriceTrendsResponse> {
+    const cacheKey = getCacheKey('/api/statistics/price-trends', params);
+    const cached = getCachedResponse(cacheKey);
+    if (cached) return cached;
+    
     const response = await apiClient.get('/api/statistics/price-trends', { params });
+    setCachedResponse(cacheKey, response.data);
     return response.data;
   },
 
-  async getPriceClusters(params?: {
-    n_clusters?: number;
-    algorithm?: 'kmeans' | 'dbscan';
+
+  async getCountyComparison(params?: {
     county?: string;
-  }): Promise<ClustersResponse> {
-    const response = await apiClient.get('/api/statistics/clusters', { params });
+    min_price?: number;
+    max_price?: number;
+    start_date?: string;
+    end_date?: string;
+    has_geocoding?: boolean;
+    has_daft_data?: boolean;
+  }): Promise<CountyComparisonResponse> {
+    const cacheKey = getCacheKey('/api/statistics/county', params);
+    const cached = getCachedResponse(cacheKey);
+    if (cached) return cached;
+    
+    const response = await apiClient.get('/api/statistics/county', { params });
+    setCachedResponse(cacheKey, response.data);
     return response.data;
   },
 
-  async getCountyComparison(): Promise<CountyComparisonResponse> {
-    const response = await apiClient.get('/api/statistics/county');
+  async getDatabaseStats(): Promise<DatabaseStatsResponse> {
+    const cacheKey = getCacheKey('/api/statistics/db-stats');
+    const cached = getCachedResponse(cacheKey);
+    if (cached) return cached;
+    
+    const response = await apiClient.get('/api/statistics/db-stats');
+    setCachedResponse(cacheKey, response.data);
     return response.data;
   },
 
-  async getCorrelation(params?: {
-    variable?: 'size' | 'date';
-  }): Promise<CorrelationResponse> {
-    const response = await apiClient.get('/api/statistics/correlation', { params });
+  async getPriceDistribution(params?: {
+    county?: string;
+    min_price?: number;
+    max_price?: number;
+    start_date?: string;
+    end_date?: string;
+    has_geocoding?: boolean;
+    has_daft_data?: boolean;
+  }): Promise<PriceDistributionResponse> {
+    const cacheKey = getCacheKey('/api/statistics/price-distribution', params);
+    const cached = getCachedResponse(cacheKey);
+    if (cached) return cached;
+    
+    const response = await apiClient.get('/api/statistics/price-distribution', { params });
+    setCachedResponse(cacheKey, response.data);
     return response.data;
   },
 
-  // Address (moved from /api/search)
-  async searchProperties(params: {
-    q: string;
-    limit?: number;
-  }): Promise<SearchResponse> {
-    const response = await apiClient.get('/api/address/search', { params });
-    return response.data;
-  },
-
-  async autocomplete(params: {
-    q: string;
-    limit?: number;
-  }): Promise<string[]> {
-    const response = await apiClient.get('/api/address/autocomplete', { params });
-    return response.data;
-  },
 
   // Address endpoints
   async getAddress(addressId: number): Promise<Address> {
-    const response = await apiClient.get(`/api/address/${addressId}`);
-    return response.data;
-  },
-
-  async listAddresses(params?: {
-    page?: number;
-    page_size?: number;
-    county?: string;
-    has_geocoding?: boolean;
-  }): Promise<{
-    items: Address[];
-    total: number;
-    page: number;
-    page_size: number;
-    total_pages: number;
-  }> {
-    const response = await apiClient.get('/api/address/', { params });
+    const cacheKey = getCacheKey(`/api/addresses/${addressId}`);
+    const cached = getCachedResponse(cacheKey);
+    if (cached) return cached;
+    
+    const response = await apiClient.get(`/api/addresses/${addressId}`);
+    setCachedResponse(cacheKey, response.data);
     return response.data;
   },
 
   async listCounties(): Promise<string[]> {
-    const response = await apiClient.get('/api/address/counties');
+    const cacheKey = getCacheKey('/api/addresses/counties');
+    const cached = getCachedResponse(cacheKey);
+    if (cached) return cached;
+    
+    const response = await apiClient.get('/api/addresses/counties');
+    setCachedResponse(cacheKey, response.data);
     return response.data;
   },
 
   async listCountries(): Promise<string[]> {
-    const response = await apiClient.get('/api/address/countries');
-    return response.data;
-  },
-
-  // Statistics - Date Range
-  async getDateRange(): Promise<{
-    min_year: number;
-    max_year: number;
-    min_date: string;
-    max_date: string;
-  }> {
-    const response = await apiClient.get('/api/statistics/date-range');
+    const cacheKey = getCacheKey('/api/addresses/countries');
+    const cached = getCachedResponse(cacheKey);
+    if (cached) return cached;
+    
+    const response = await apiClient.get('/api/addresses/countries');
+    setCachedResponse(cacheKey, response.data);
     return response.data;
   },
 };
