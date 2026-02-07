@@ -27,7 +27,7 @@ export default function SalesVolumeChart({ data }: SalesVolumeChartProps) {
               className="text-gray-600 dark:text-gray-400"
             />
             <Tooltip
-              formatter={(value: number) => [value.toLocaleString(), 'Sales']}
+              formatter={(value: number | undefined) => [value != null ? value.toLocaleString() : '0', 'Sales']}
               labelFormatter={(label) => `Period: ${label}`}
               contentStyle={{
                 backgroundColor: 'rgba(255, 255, 255, 0.95)',

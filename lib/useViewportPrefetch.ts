@@ -24,7 +24,7 @@ export function useViewportPrefetch(
   enabled: boolean = true
 ) {
   const requestManager = useRef(new MapRequestManager());
-  const prefetchTimer = useRef<NodeJS.Timeout>();
+  const prefetchTimer = useRef<NodeJS.Timeout | undefined>(undefined);
 
   useEffect(() => {
     if (!enabled || !mapRef.current) return;
